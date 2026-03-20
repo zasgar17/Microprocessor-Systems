@@ -9,7 +9,7 @@ void setup() {
 
   while (EECR & (1 << EEPE));   
 
-  EEAR = 0x01;                 
+  EEAR = 0x00;                 
   EECR |= (1 << EERE);          
   counter = EEDR;               
 }
@@ -33,7 +33,7 @@ void loop() {
 
       while (EECR & (1 << EEPE));   
 
-      EEAR = 0x01;                  
+      EEAR = 0x00;                  
       EEDR = counter;               
       EECR |= (1 << EEMPE);         
       EECR |= (1 << EEPE);          
