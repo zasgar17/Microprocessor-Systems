@@ -22,7 +22,7 @@ void loop() {
   if (a_in < 0 || b_in < 0) return;
 
   uint8_t a = (uint8_t)constrain(a_in, 0, 255);
-  uint8_t b = (uint8_t)constrain(b_in, 0, 500);
+  uint8_t b = (uint8_t)constrain(b_in, 0, 255);
 
   uint8_t result = 0;
   uint8_t sreg_after = 0;
