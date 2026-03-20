@@ -1,0 +1,149 @@
+#include <avr/io.h>
+#include <util/delay.h>
+
+
+void action0(void); // normal blink
+void action1(void); // reverse blink
+void action2(void); // short blink
+void action3(void); 
+
+
+void run_mode(uint16_t on_time, uint16_t off_time);
+void modeA_entry(void);
+void modeB_entry(void);
+void modeC_entry(void);
+
+
+uint16_t g_on_time  = 500;
+uint16_t g_off_time = 500;
+volatile uint8_t action_index = 0;
+
+
+void delay_ms_var(uint16_t ms)
+{
+    while(ms--) _delay_ms(1);
+}
+
+
+void action0(void)
+{
+    PORTB |=  (1 << 5); 
+    delay_ms_var(g_on_time);
+
+    PORTB &= ~(1 << 5);
+    delay_ms_var(g_off_time);
+
+    asm volatile("rjmp mode_loop");
+}
+
+void action1(void)
+{
+    PORTB &= ~(1 << 5);
+    delay_ms_var(g_off_time);
+
+    PORTB |= (1 << 5);
+    delay_ms_var(g_on_time);
+
+    asm volatile("rjmp mode_loop");
+}
+
+void action2(void)
+{
+    PORTB |= (1 << 5);
+    _delay_ms(30); // short on
+
+    PORTB &= ~(1 << 5);
+    delay_ms_var(g_on_time + g_off_time);
+
+    asm volatile("rjmp mode_loop");
+}
+
+void action3(void)
+{
+    action_index = 0;   // reset action
+    asm volatile("jmp mode_loop");
+}
+
+
+typedef void (*action_fn)(void);
+action_fn action_table[4] = { action0, action1, action2, action3 };
+
+
+void run_mode(uint16_t on_time, uint16_t off_time)
+{
+    g_on_time  = on_time;
+    g_off_time = off_time;
+    action_index = 0;
+
+    asm volatile("mode_loop:");
+
+    while(1)
+    {
+        // Düymə basıldıqda action dəyiş
+        if(!(PINB & (1 << 0)))
+        {
+            action_index++;
+            action_index %= 4;
+
+            while(!(PINB & (1 << 0))); // düymə buraxılana qədər gözlə
+            _delay_ms(50);
+        }
+
+        
+        asm volatile(
+            "movw r30, %0\n\t" // Z register-ə function address
+            "ijmp\n\t"
+            :
+            : "r" (action_table[action_index])
+        );
+    }
+}
+
+
+void modeA_entry(void) { run_mode(1000,1000); }
+void modeB_entry(void) { run_mode(200,200); }
+void modeC_entry(void) { run_mode(50,50); }
+// Əsas funksiya
+int main(void)
+{
+    DDRB |=  (1 << 5);   // LED output
+    DDRB &= ~(1 << 0);   // Button input
+    PORTB |= (1 << 0);   // Pull-up aktiv
+
+    
+    asm volatile(
+        "wait_btn:\n\t"
+        "sbic %0,0\n\t"
+        "rjmp wait_btn\n\t"
+        :
+        : "I" (_SFR_IO_ADDR(PINB))
+    );
+
+    
+    PORTB |= (1 << 5); _delay_ms(200);
+    PORTB &= ~(1 << 5); _delay_ms(200);
+
+    
+    uint8_t presses = 0;
+    uint16_t timer = 0;
+
+    while(timer < 2000) 
+    {
+        if(!(PINB & (1 << 0)))
+        {
+            presses++;
+            while(!(PINB & (1 << 0))); 
+            _delay_ms(50);
+        }
+
+        _delay_ms(1);
+        timer++;
+    }
+
+    
+    if(presses >= 3)      modeC_entry();
+    else if(presses == 2) modeB_entry();
+    else                  modeA_entry();
+
+    while(1); 
+}
