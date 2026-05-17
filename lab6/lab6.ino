@@ -12,8 +12,17 @@ const uint8_t seg[10] = {
 
 static inline void show_digit(uint8_t n) {
     uint8_t x = seg[n];
+
     PORTB = (PORTB & ~0x3F) | (x & 0x3F);      // a-f -> D8-D13
     PORTC = (PORTC & ~0x01) | ((x >> 6) & 1); // g   -> A0
+}
+
+static inline void timer1_start(void) {
+    TCCR1B = (1 << WGM12) | (1 << CS12);      // CTC mode, prescaler = 256
+}
+
+static inline void timer1_stop(void) {
+    TCCR1B = (1 << WGM12);                    // keep CTC mode, stop clock
 }
 
 ISR(TIMER1_COMPA_vect) {
@@ -26,18 +35,16 @@ ISR(TIMER1_COMPA_vect) {
 ISR(INT0_vect) {
     paused ^= 1;
 
-    if (paused)
-        PORTD |= (1 << PD6);     // D6 HIGH = paused
-    else
-        PORTD &= ~(1 << PD6);    // D6 LOW = resumed/running
+    if (paused) {
+        timer1_stop();
+    } else {
+        timer1_start();
+    }
 }
 
 int main(void) {
     DDRB |= 0x3F;          // D8-D13 output for a-f
     DDRC |= (1 << PC0);    // A0 output for g
-
-    DDRD |= (1 << PD6);    // D6 output for oscilloscope pause/resume signal
-    PORTD &= ~(1 << PD6);  // start as running, D6 LOW
 
     DDRD &= ~(1 << PD2);   // D2 input for button
     PORTD |= (1 << PD2);   // internal pull-up
@@ -45,7 +52,7 @@ int main(void) {
     show_digit(digit);
 
     TCCR1A = 0;
-    TCCR1B = (1 << WGM12) | (1 << CS12);
+    timer1_start();
     OCR1A  = 31249;
     TIMSK1 = (1 << OCIE1A);
 
@@ -55,4 +62,4 @@ int main(void) {
     sei();
 
     while (1) { }
-}   
+}
