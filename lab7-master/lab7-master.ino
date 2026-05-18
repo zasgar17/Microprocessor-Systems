@@ -22,7 +22,7 @@ void setup() {
 }
 
 void loop() {
-  uint8_t values[3] = {12, 45, 0};
+  uint8_t values[3] = {85, 170, 255};
 
   for (int i = 0; i < 3; i++) {
     PORTB &= ~(1 << PB2);   // SS LOW → start
